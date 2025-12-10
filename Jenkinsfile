@@ -11,11 +11,11 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'mvn clean package -DskipTests'
+                sh 'mvn clean package'
             }
         }
 
-        stage('Test') {
+        stage('Unit Tests') {
             steps {
                 sh 'mvn test'
             }
@@ -24,26 +24,18 @@ pipeline {
         stage('Deploy to DEV') {
             steps {
                 sh '''
-                TOMCAT="/home/abc/mavenprojects/tomcat9-dev"
-                APP="proje2e"
-                WAR="target/*.war"
-                BACKUP="$TOMCAT/backup"
-                TS=$(date +'%Y%m%d_%H%M%S')
+                WAR_FILE=$(ls target/*.war)
+                APP_NAME="proje2e"
+                TOMCAT_URL="http://localhost:8081/manager/text"
+                USER="deploy"
+                PASS="deploy123"
 
-                echo "Stopping Tomcat..."
-                $TOMCAT/bin/shutdown.sh || true
-                sleep 3
+                echo "Backup old WAR"
+                mkdir -p backup/dev/
+                cp $WAR_FILE backup/dev/${APP_NAME}_$(date +%F_%T).war || true
 
-                mkdir -p $BACKUP
-                if [ -f "$TOMCAT/webapps/$APP.war" ]; then
-                    mv $TOMCAT/webapps/$APP.war $BACKUP/${APP}_${TS}.war
-                fi
-
-                rm -rf $TOMCAT/webapps/$APP
-                cp $WAR $TOMCAT/webapps/$APP.war
-
-                echo "Starting Tomcat..."
-                $TOMCAT/bin/startup.sh
+                echo "Deploying to DEV Tomcat..."
+                curl -u $USER:$PASS -T $WAR_FILE "$TOMCAT_URL/deploy?path=/$APP_NAME&update=true"
                 '''
             }
         }
